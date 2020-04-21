@@ -29,7 +29,7 @@ init : Session.Model -> ( Model, Cmd Msg )
 init session =
     ( { session = session
       , viewport = Nothing
-      , recaman = [ 0, 1, 2, 3 ]
+      , recaman = [ 0, 1, 2, 3, 10, 23, 4, 77, 9 ]
       , scale = 10
       }
     , Task.perform GotViewport getViewport
@@ -68,16 +68,18 @@ art viewport { recaman, scale } =
 
         mString =
             String.fromInt <| ceiling m
+
+        pairs =
+            Debug.log "pairs" <| sequenceToPairs recaman
+
+        pairsWithScale =
+            Debug.log "scaledPairs" <| applyScale scale pairs
     in
     div [ class "border bg-gray-100" ]
         [ svg [ viewBox <| "0 0 " ++ mString ++ " " ++ mString ]
             [ path
                 [ pathDrawing
-                    [ "M 0 150"
-                    , halfCircle 150 50 200 True
-                    , halfCircle 150 200 300 False
-                    , halfCircle 150 300 350 True
-                    ]
+                    ("M 0 150" :: makeHalfCirlces 150 pairsWithScale)
                 , stroke "black"
                 , strokeWidth "1"
                 , fill "white"
@@ -85,6 +87,43 @@ art viewport { recaman, scale } =
                 []
             ]
         ]
+
+
+makeHalfCirlces : Int -> List ( Int, Int ) -> List String
+makeHalfCirlces y points =
+    List.map (\t -> halfCircle y (Tuple.first t) (Tuple.second t) True) points
+
+
+applyScale : Int -> List ( Int, Int ) -> List ( Int, Int )
+applyScale scale seq =
+    List.map (\t -> Tuple.mapBoth (\x -> x * scale) (\x -> x * scale) t) seq
+
+
+sequenceToPairs : List Int -> List ( Int, Int )
+sequenceToPairs seq =
+    -- [1, 2, 3, 4] -> [(1, 2), (2, 3), (3, 4)]
+    let
+        h =
+            List.head seq
+
+        next =
+            List.tail seq
+    in
+    case ( h, next ) of
+        ( Just hd, Just nextSeq ) ->
+            let
+                nextHead =
+                    List.head nextSeq
+            in
+            case nextHead of
+                Just nextH ->
+                    ( hd, nextH ) :: sequenceToPairs nextSeq
+
+                Nothing ->
+                    []
+
+        ( _, _ ) ->
+            []
 
 
 pathDrawing : List String -> Svg.Attribute msg
