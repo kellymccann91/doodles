@@ -8,7 +8,7 @@ import Seq exposing (Seq)
 import Session exposing (WithSession)
 import Set exposing (Set)
 import Svg exposing (path, svg)
-import Svg.Attributes exposing (cx, cy, d, fill, stroke, strokeWidth, viewBox)
+import Svg.Attributes exposing (d, fill, stroke, strokeWidth, viewBox)
 import Task
 
 
@@ -18,11 +18,59 @@ type alias Model =
         , scale : Scale
         , count : Int
         , root : Int
+        , sweepPattern : SweepPattern
         }
 
 
-type alias Recaman =
-    List Int
+type SweepPattern
+    = A
+    | B
+    | C
+    | D
+    | E
+    | F
+    | G
+    | H
+
+
+type alias IncDec =
+    Bool
+
+
+type alias OddIndex =
+    Bool
+
+
+type alias DirectionChange =
+    Bool
+
+
+toFoo : SweepPattern -> ( IncDec, OddIndex, DirectionChange )
+toFoo sweep =
+    case sweep of
+        A ->
+            ( True, True, True )
+
+        B ->
+            ( True, False, True )
+
+        C ->
+            ( False, True, True )
+
+        D ->
+            ( False, False, True )
+
+        E ->
+            ( True, True, False )
+
+        F ->
+            ( True, False, False )
+
+        G ->
+            ( False, True, False )
+
+        H ->
+            ( False, False, False )
 
 
 type alias Scale =
@@ -36,6 +84,7 @@ init session =
       , scale = 10
       , count = 100
       , root = 1
+      , sweepPattern = A
       }
     , Task.perform GotViewport getViewport
     )
@@ -43,7 +92,6 @@ init session =
 
 sequenceToPairs : List Int -> List ( Int, Int )
 sequenceToPairs seq =
-    -- [1, 2, 3, 4] -> [(1, 2), (2, 3), (3, 4)]
     let
         h =
             List.head seq
@@ -80,10 +128,6 @@ generateRecaman n root count =
     Seq.toList nTerms
 
 
-
--- [ 1, 2, 4 ]
-
-
 recamanSeq : Int -> Int -> Int -> Set Int -> Seq Int -> Seq Int
 recamanSeq count n lastTerm visited soFar =
     let
@@ -116,27 +160,6 @@ recamanSeq count n lastTerm visited soFar =
 
     else
         Seq.reverse soFar
-
-
-
--- Seq.cons plusTerm Seq.numbers
---   @JSExport
---   def generateRecaman(n: Int, root: Int, count: Int) = {
---     val list = recaman(n, root, Set()).take(count).toList
---     list.asJson.noSpaces
---   }
---
---   @JSExport
---   def recaman(n: Int, lastTerm: Int, visited: Set[Int]): Stream[Int] = {
---     val minusTerm: Int = lastTerm - n
---     if (minusTerm >= 0 && !visited.contains(minusTerm)) {
---       minusTerm #:: recaman(n + 1, minusTerm, visited.+(minusTerm))
---     } else {
---       val plusTerm: Int = lastTerm + n
---       plusTerm #:: recaman(n + 1, plusTerm, visited + plusTerm)
---     }
---   }
--- }
 
 
 type Msg
@@ -187,6 +210,9 @@ artInputs model =
         , style "justify-content" "space-around"
         , style "height" "80px"
         , style "width" "200px"
+        , style "border" "1px solid gray"
+        , style "padding" "4px"
+        , style "position" "fixed"
         ]
         [ slider 0 1000 model.count UpdateCount
         , slider 0 111 model.count UpdateRoot
@@ -220,6 +246,10 @@ art viewport { count, root, scale } =
         recaman =
             generateRecaman 0 root count
 
+        -- [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ]
+        -- [ 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 ]
+        -- [ 0, 10, 9, 8, 11, 12, 13, 4, 3, 2, 1, 0 ]
+        -- [1, 2, 3, 4]
         { width, height } =
             viewport.viewport
 
@@ -244,7 +274,7 @@ art viewport { count, root, scale } =
                 [ d <| makeSvgPath startY pairsWithScale
                 , stroke "black"
                 , strokeWidth "1"
-                , fill "white"
+                , fill "blue"
                 ]
                 []
             ]
@@ -285,7 +315,19 @@ applyScale scale seq =
 
 makeHalfCirlces : Int -> List ( Int, Int ) -> List String
 makeHalfCirlces y points =
-    List.indexedMap (\idx ( l, r ) -> halfCircle y l r (sweepDirection l r idx)) points
+    List.indexedMap (\idx ( l, r ) -> buildCircle y l r idx) points
+
+
+buildCircle : Int -> Int -> Int -> Int -> String
+buildCircle y l r idx =
+    halfCircle y l r (sweepDirection l r idx)
+
+
+
+-- forward
+-- odd
+-- forward && odd
+-- True
 
 
 sweepDirection : Int -> Int -> Int -> Bool
@@ -298,14 +340,6 @@ sweepDirection left right idx =
             modBy 2 idx == 1
     in
     odd
-
-
-
--- odd
--- forward
--- odd
--- forward && odd
--- True
 
 
 halfCircle : Int -> Int -> Int -> Bool -> String
@@ -321,7 +355,25 @@ halfCircle startY startX endX orientation =
             else
                 0
     in
-    arc radius radius 0 sweepFlag endX startY
+    if startX > endX then
+        String.join " " [ point startX startY, arc radius radius 0 sweepFlag endX startY ]
+
+    else
+        -- String.join " " [ point startX startY, arc radius radius 0 sweepFlag endX startY ]
+        String.join " " [ point endX startY, arc radius radius 0 sweepFlag startX startY ]
+
+
+
+-- String.join " " [ point endX startY, arc radius radius 0 sweepFlag startX startY ]
+-- String.join " " [ arc radius radius 0 sweepFlag startX startY ]
+-- String.join " " [ arc radius radius 0 sweepFlag endX startY ]
+
+
+point : Int -> Int -> String
+point x y =
+    String.join " "
+        -- ("M" :: List.map String.fromInt [ 200, y ])
+        ("M" :: List.map String.fromInt [ x, y ])
 
 
 arc : Int -> Int -> Int -> Int -> Int -> Int -> String
